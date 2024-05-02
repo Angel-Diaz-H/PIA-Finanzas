@@ -29,9 +29,6 @@ from colorama import Fore, Style
 #
 #
 #--------------------------------------FUNCIONES DE IMPRESIÓN CON ESTILOS.
-def limpiar_consola():
-    os.system('cls' if os.name == 'nt' else 'clear')
-
 def aviso(mensaje, longitud):
     mensaje = mensaje.upper()
     print(f"\n{Style.BRIGHT}{guiones(longitud)} {mensaje} {guiones(longitud)}{Style.RESET_ALL}\n")
@@ -126,6 +123,9 @@ def inputCyanNegrita(mensaje):
 #
 #
 #--------------------------------------FUNCIONES GENERALES.
+def limpiar_consola():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
 def guiones(longitud):
     return '-' * longitud
 
@@ -138,10 +138,20 @@ def respuestaSINO():
             printNegrita('\n\tIngrese una respuesta válida (Sí/No).')
     return respuesta
 
-def darFormatoATexto(texto):
+def darFormatoATexto(texto, sinEspacios = False):
     texto = unidecode(texto).strip().upper()
-    texto = re.sub(r'\s+', ' ', texto)
+    if sinEspacios:
+        texto = texto.replace(' ', '')
+    else:
+        texto = re.sub(r'\s+', ' ', texto)
     return texto
+
+
+def validarSalir(texto):
+    texto = darFormatoATexto(texto, True)
+    if texto == '<REGRESAR>':
+        return True
+    return False
 
 def indicarEnter():
     inputBlueNegrita("\n\nDe clic en Enter para continuar.")
@@ -379,7 +389,7 @@ def menuPrincipal():
         opcion = 0
         continue
 
-#--------------------------------------2.1. MENÚ CLIENTES.
+#--------------------------------------1.1. MENÚ CLIENTES.
 def menuClientes(ubicacion):
     ubicacionOriginal = ubicacion.copy()
     opcion = 0
@@ -391,16 +401,16 @@ def menuClientes(ubicacion):
 
         if opcion == 1:
             mostrarTitulo(ubicacion)
-            #función_correspondiente()
+            registrarClientes()
         elif opcion == 2:
             mostrarTitulo(ubicacion)
-            #función_correspondiente()
+            eliminarClientes()
         elif opcion == 3:
             mostrarTitulo(ubicacion)
-            #función_correspondiente()
+            recuperarClientes()
         elif opcion == 4:
             mostrarTitulo(ubicacion)
-            #función_correspondiente()
+            mostrarClientes()
         else:
             break
 
@@ -408,7 +418,7 @@ def menuClientes(ubicacion):
         limpiar_consola()
         continue
 
-#--------------------------------------2.2. MENÚ CUENTAS POR PAGAR.
+#--------------------------------------1.2. MENÚ CUENTAS POR PAGAR.
 def menuCuentasPorPagar(ubicacion):
     ubicacionOriginal = ubicacion.copy()
     opcion = 0
@@ -420,24 +430,101 @@ def menuCuentasPorPagar(ubicacion):
 
         if opcion == 1:
             mostrarTitulo(ubicacion)
-            #función_correspondiente()
+            registrarCuentasPorCobrar()
         elif opcion == 2:
             mostrarTitulo(ubicacion)
-            #función_correspondiente()
+            eliminarCuentasPorCobrar()
         elif opcion == 3:
             mostrarTitulo(ubicacion)
-            #función_correspondiente()
+            recuperarCuentasPorCobrar()
         elif opcion == 4:
             mostrarTitulo(ubicacion)
-            #función_correspondiente()
+            mostrarCuentasPorCobrar()
         elif opcion == 5:
             mostrarTitulo(ubicacion)
-            #función_correspondiente()
+            analisisDeCuentasPorCobrar()
         else:
             break
 
         opcion = 0
         limpiar_consola()
         continue
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#--------------------------------------1.1.1. OPCIÓN REGISTRAR CLIENTES.
+def registrarClientes():
+    while True:
+        print("Estás dentro del bucle")
+        texxx = inputCyanNegrita("")
+        if validarSalir(texxx): break
+
+#--------------------------------------1.1.2. OPCIÓN ELIMINAR CLIENTES.
+def eliminarClientes():
+    inputCyanNegrita("")
+
+#--------------------------------------1.1.3. OPCIÓN RECUPERAR CLIENTES.
+def recuperarClientes():
+    inputCyanNegrita("")
+
+#--------------------------------------1.1.4. OPCIÓN MOSTRAR CLIENTES.
+def mostrarClientes():
+    inputCyanNegrita("")
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#--------------------------------------1.2.1. OPCIÓN REGISTRAR CUENTAS POR COBRAR.
+def registrarCuentasPorCobrar():
+    inputCyanNegrita("")
+
+#--------------------------------------1.2.2. OPCIÓN ELIMINAR CUENTAS POR COBRAR.
+def eliminarCuentasPorCobrar():
+    inputCyanNegrita("")
+
+#--------------------------------------1.2.3. OPCIÓN RECUPERAR CUENTAS POR COBRAR.
+def recuperarCuentasPorCobrar():
+    inputCyanNegrita("")
+
+#--------------------------------------1.2.4. OPCIÓN MOSTRAR CUENTAS POR COBRAR.
+def mostrarCuentasPorCobrar():
+    inputCyanNegrita("")
+
+#--------------------------------------1.2.5. OPCIÓN ANÁLISIS DE CUENTAS POR COBRAR.
+def analisisDeCuentasPorCobrar():
+    inputCyanNegrita("")
 
 menuPrincipal()
