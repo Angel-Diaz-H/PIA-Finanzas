@@ -129,14 +129,15 @@ def limpiar_consola():
 def guiones(longitud):
     return '-' * longitud
 
-def respuestaSINO():
+def respuestaSiYNo():
     while True:
         respuesta = darFormatoATexto(inputNegrita('\tRespuesta: '))
-        if respuesta == 'SI' or respuesta == 'NO':
-            break
+        if respuesta == 'SI':
+            return True
+        elif respuesta == 'NO':
+            return False
         else:
             printNegrita('\n\tIngrese una respuesta válida (Sí/No).')
-    return respuesta
 
 def darFormatoATexto(texto, sinEspacios = False):
     texto = unidecode(texto).strip().upper()
@@ -146,7 +147,6 @@ def darFormatoATexto(texto, sinEspacios = False):
         texto = re.sub(r'\s+', ' ', texto)
     return texto
 
-
 def validarSalir(texto):
     texto = darFormatoATexto(texto, True)
     if texto == '<REGRESAR>':
@@ -155,6 +155,37 @@ def validarSalir(texto):
 
 def indicarEnter():
     inputBlueNegrita("\n\nDe clic en Enter para continuar.")
+
+def validarTextoValido(texto, permitirNumero = True):
+    
+    if not permitirNumero == True:
+        if not texto.replace(' ', '').isalpha():
+            printRedNegrita("Ingrese solo letras.\n")
+            return True
+    else:
+        if not re.match("^[A-Za-z0-9]*$", texto.replace(' ', '')):
+            printRedNegrita("Ingrese solo letras y números.\n")
+            return True
+
+    if len(texto) < 3 or len(texto) > 50:
+        printRedNegrita("Ingrese un nombre válido.\n")
+        return True
+    return False
+
+def mensajeInicialEnFuncionesEspecificas():
+    printBlueNegrita("Para regresar al menú anterior ingrese:")
+    printGreenNegrita("<Regresar>\n")
+
+def solicitarEnteroOSalir(descripcion):
+    while True:
+        respuesta = inputNegrita(f"{descripcion}: ")
+
+        if respuesta.isdigit():
+            return int(respuesta), False
+        elif validarSalir(respuesta):
+            return True, True
+        else:
+            printRedNegrita("Ingrese un número válido.\n")
 
 #--------------------------------------FUNCIONES AUXILIARES. 
 def mostrarOpcionesDeMenu(listaActual):
@@ -222,15 +253,6 @@ except Error as e:
 except Exception:
         printRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
 
-#Copia el df a otro sin nombres duplicados.
-try:
-    df_copia1 = df[['Nombre']].copy()
-    df_copia1 = df_copia1.drop_duplicates().reset_index(drop = True)
-except Error as e:
-        printRedNegrita(f'Se produjo el siguiente error: {e}')
-except Exception:
-        printRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
-
 #--------------------------------------CREACIÓN DE TABLAS SQL (SOLO SI NO EXISTEN).
 def creacion_tablas():
     try:
@@ -238,7 +260,8 @@ def creacion_tablas():
             mi_cursor = conn.cursor()
             mi_cursor.execute("CREATE TABLE IF NOT EXISTS Clientes \
                             (CLAVE_CLIENTE INTEGER PRIMARY KEY NOT NULL,\
-                            NOMBRECLIENTE TEXT NOT NULL);")
+                            NOMBRECLIENTE TEXT NOT NULL, \
+                            ESTADOCLIENTE INTEGER NOT NULL);")
             mi_cursor.execute("CREATE TABLE IF NOT EXISTS CuentasPorCobrar \
                             (CLAVE_GUIA INTEGER PRIMARY KEY NOT NULL, \
                             DIAS INTEGER NOT NULL,\
@@ -253,48 +276,45 @@ def creacion_tablas():
         printRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
     finally:
         conn.close()
+
+#--------------------------------------INSERTAR REGISTROS EXCEL A LA TABLA CLIENTES.
+def insertar_clientes(df):
+    try:
+        with sqlite3.connect('CuentasPorCobrar.db') as conn:
+            mi_cursor = conn.cursor()
+            for i in df['Nombre'].unique():
+                mi_cursor.execute("INSERT INTO Clientes (NOMBRECLIENTE, ESTADOCLIENTE) \
+                                  SELECT ?, ? WHERE NOT EXISTS(SELECT 1 \
+                                  FROM Clientes WHERE NOMBRECLIENTE = ?)", (i, 1, i))
+            printGreenNegrita("Los datos se han insertado correctamente en la tabla Clientes.\n")
+    except Error as e:
+        printRedNegrita(f'Se produjo el siguiente error: {e}')
+    except Exception:
+        printRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
+    finally:
+        conn.close()
+
+#--------------------------------------INSERTAR REGISTROS EXCEL A LA TABLA CUENTASPORCOBRAR.
+def insertar_cuentasporcobrar(df):
+    try:
+        with sqlite3.connect('CuentasPorCobrar.db') as conn:
+            mi_cursor = conn.cursor()
+            for i, row in df.iterrows():
+                fecha = row['Fecha'].strftime('%Y-%m-%d %H:%M:%S')  # Convertir la fecha a una cadena de texto
+                mi_cursor.execute("INSERT INTO CuentasPorCobrar (CLAVE_GUIA, DIAS, FECHA, TOTAL, CLAVE_CLIENTE) \
+                                  SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS(SELECT 1 FROM CuentasPorCobrar WHERE CLAVE_GUIA = ?) AND \
+                                  EXISTS(SELECT 1 FROM Clientes WHERE CLAVE_CLIENTE = ?)", (row['Guía'], row['Días '], fecha, row['Total'], row['Cliente'], row['Guía'], row['Cliente']))
+            printGreenNegrita("Los datos se han insertado correctamente en la tabla CuentasPorCobrar.\n")
+    except Error as e:
+        printRedNegrita(f'Se produjo el siguiente error: {e}')
+    except Exception:
+        printRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
+    finally:
+        conn.close()
+
 creacion_tablas()
-
-#--------------------------------------INSERTAR REGISTROS DE EXCEL A LA TABLA CLIENTES (SOLO SI NO EXISTEN).
-try:
-    with sqlite3.connect('CuentasPorCobrar.db') as conn:
-        mi_cursor = conn.cursor()
-        for nombre_cliente in df_copia1['Nombre']:
-            mi_cursor.execute("SELECT COUNT(*) FROM CLIENTES WHERE CLAVE_CLIENTE=?", (nombre_cliente,))
-            existencia = mi_cursor.fetchone()[0]
-            if existencia == 0:
-                mi_cursor.execute("INSERT INTO CLIENTES(NOMBRECLIENTE) VALUES (?)", (nombre_cliente,))
-        printGreenNegrita("La información de los clientes se han registrado satisfactoriamente.\n")
-except Error as e:
-    printRedNegrita(f'Se produjo el siguiente error: {e}')
-except Exception:
-    printRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
-finally:                                    
-    conn.close()
-
-#INSERTAR REGISTROS DE EXCEL A LA TABLA CUENTASPORCOBRAR (SOLO SI NO EXISTEN Y SI CLAVE_CLIENTE EXISTE EN TABLAS CLIENTES).
-try:
-    with sqlite3.connect('CuentasPorCobrar.db') as conn:
-        mi_cursor = conn.cursor()
-        for index, row in df.iterrows():
-            mi_cursor.execute("SELECT COUNT(*) FROM CLIENTES WHERE CLAVE_CLIENTE=?", (row['Cliente'],))
-            existencia2 = mi_cursor.fetchone()[0]
-
-            mi_cursor.execute("SELECT COUNT(*) FROM CuentasPorCobrar WHERE CLAVE_GUIA=?", (row['Guía'],))
-            existencia3 = mi_cursor.fetchone()[0]
-
-            if existencia2 > 0 and existencia3 == 0:
-                fecha = row['Fecha'].strftime('%Y-%m-%d')  #Convierte la fecha a una cadena de texto.
-                mi_cursor.execute("INSERT INTO CuentasPorCobrar(CLAVE_GUIA, DIAS, FECHA, TOTAL, CLAVE_CLIENTE) VALUES (?, ?, ?, ?, ?)", 
-                                  (row['Guía'], row['Días '], fecha, row['Total'], row['Cliente']))
-        printGreenNegrita("La información de cuentas por cobrar se ha registrado correctamente.")
-except Error as e:
-    printRedNegrita(f'Se produjo el siguiente error: {e}')
-except Exception:
-    printRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
-finally:                                    
-    conn.close()
-
+insertar_clientes(df)
+insertar_cuentasporcobrar(df)
 indicarEnter()
 limpiar_consola()
 #
@@ -324,13 +344,13 @@ lmenu_principal = [('Opción', 'Descripción'),
               (3, 'Salir')]
 lmenu_clientes = [('Opción', 'Descripción'),
               (1, 'Registrar clientes'),
-              (2, 'Eliminar clientes'),
+              (2, 'Suspender clientes'),
               (3, 'Recuperar clientes'),
               (4, 'Mostrar clientes'),
               (5, 'Volver al menú principal')]
 lmenu_cuentaPorPagar = [('Opción', 'Descripción'),
               (1, 'Registrar cuentras por pagar'),
-              (2, 'Eliminar cuentas por pagar'),
+              (2, 'Cancelar cuentas por pagar'),
               (3, 'Recuperar cuentas por pagar'),
               (4, 'Mostrar cuentas por pagar'),
               (5, 'Análisis de cuentas por pagar'),
@@ -376,9 +396,8 @@ def menuPrincipal():
         elif opcion == 2:
             menuCuentasPorPagar(ubicacion)
         else:
-            printBlueNegrita('\n¿Está seguro que desea salir? (Sí/No)')
-            respuesta = respuestaSINO()
-            if respuesta == 'SI':
+            printCyanNegrita('\n¿Está seguro que desea salir? (Sí/No)')
+            if respuestaSiYNo():
                 avisoGreen("Archivo cerrado correctamente.", 25)
                 avisoGreen("Gracias por usar nuestro sistema, hasta la próxima.", 15)
                 break
@@ -404,7 +423,7 @@ def menuClientes(ubicacion):
             registrarClientes()
         elif opcion == 2:
             mostrarTitulo(ubicacion)
-            eliminarClientes()
+            suspenderCliente()
         elif opcion == 3:
             mostrarTitulo(ubicacion)
             recuperarClientes()
@@ -433,7 +452,7 @@ def menuCuentasPorPagar(ubicacion):
             registrarCuentasPorCobrar()
         elif opcion == 2:
             mostrarTitulo(ubicacion)
-            eliminarCuentasPorCobrar()
+            cancelarCuentasPorCobrar()
         elif opcion == 3:
             mostrarTitulo(ubicacion)
             recuperarCuentasPorCobrar()
@@ -471,18 +490,132 @@ def menuCuentasPorPagar(ubicacion):
 #
 #--------------------------------------1.1.1. OPCIÓN REGISTRAR CLIENTES.
 def registrarClientes():
+    mensajeInicialEnFuncionesEspecificas()
+    
+    print('Ingrese el nombre del cliente (empresa).')
     while True:
-        print("Estás dentro del bucle")
-        texxx = inputCyanNegrita("")
-        if validarSalir(texxx): break
+        nombre = darFormatoATexto(inputNegrita('Nombre: '))
+        
+        if validarSalir(nombre): break
+        if validarTextoValido(nombre): continue
 
-#--------------------------------------1.1.2. OPCIÓN ELIMINAR CLIENTES.
-def eliminarClientes():
-    inputCyanNegrita("")
+        try:
+            with sqlite3.connect('CuentasPorCobrar.db') as conn:
+                mi_cursor = conn.cursor()
+                mi_cursor.execute("SELECT 1 FROM Clientes WHERE NOMBRECLIENTE = ?", (nombre,))
+                existencia = mi_cursor.fetchone()
+                if existencia: 
+                    printRedNegrita("La empresa ya se encuentra registrada.\n")
+                    continue
+                else:
+                    mi_cursor.execute("INSERT INTO Clientes(NOMBRECLIENTE, ESTADOCLIENTE) VALUES (?, ?)", (nombre, 1))
+                    printCyanNegrita("\n¿Desea registrar el cliente? Confirme su respuesta (Sí/No).")
+                    if respuestaSiYNo():
+                        printGreenNegrita("\nRegistro de cliente exitosamente.")
+                    else:
+                        printBlueNegrita("\nEl cliente no se registró.")
+                    indicarEnter()
+                    break
+        except Error as e:
+            printRedNegrita(f'Se produjo el siguiente error: {e}')
+        except Exception as e:
+            printRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
+        finally:
+            conn.close()
+
+#--------------------------------------1.1.2. OPCIÓN SUSPENDER CLIENTES.
+def suspenderCliente():
+    
+    while True:
+        try:
+            with sqlite3.connect('CuentasPorCobrar.db') as conn:
+                mi_cursor = conn.cursor()
+                mi_cursor.execute("SELECT CLAVE_CLIENTE, NOMBRECLIENTE FROM Clientes WHERE ESTADOCLIENTE = 1")
+                existencia = mi_cursor.fetchall()
+                if existencia:
+                    mensajeInicialEnFuncionesEspecificas()
+                    printNegrita("Lista de clientes activos:")
+                    print(tabulate(existencia, headers = ["Clave del cliente", "Nombre"], tablefmt = 'pretty'))
+                    print("\nIngrese la clave del cliente a suspender.")
+
+                    while True:
+                        respuesta = solicitarEnteroOSalir("Clave")
+                        if respuesta[1]: break
+                        busqueda = any(clave[0] == respuesta[0] for clave in existencia)
+                        if busqueda:
+                            printCyanNegrita("\n¿Desea suspender el siguiente cliente? (Sí/No)")
+                            mi_cursor.execute("SELECT CLAVE_CLIENTE, NOMBRECLIENTE FROM Clientes WHERE CLAVE_CLIENTE = ?", (respuesta[0],))
+                            clienteEncontrado = mi_cursor.fetchone()
+                            print(tabulate([list(clienteEncontrado)], headers = ["Clave del cliente", "Nombre"], tablefmt = 'pretty'))
+
+                            if respuestaSiYNo():
+                                mi_cursor.execute("UPDATE Clientes SET ESTADOCLIENTE = 0 WHERE CLAVE_CLIENTE = ?", (clienteEncontrado[0],))
+                                printGreenNegrita("\nCliente suspendido con éxito.")
+                            else:
+                                printBlueNegrita("\nEl cliente no se suspendió.")
+                            indicarEnter()
+                            break
+                        else:
+                            printRedNegrita("Ingrese una clave válida o <regresar> para volver al menú anterior.\n")
+                            continue
+                else:
+                    printBlueNegrita('\nActualmente no se cuenta con clientes activos.')
+                    indicarEnter()
+                    break
+                break
+        except Error as e:
+            inputRedNegrita(f'Se produjo el siguiente error: {e}')
+        except Exception as e:
+            inputRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
+        finally:
+            conn.close()
 
 #--------------------------------------1.1.3. OPCIÓN RECUPERAR CLIENTES.
 def recuperarClientes():
-    inputCyanNegrita("")
+    while True:
+        try:
+            with sqlite3.connect('CuentasPorCobrar.db') as conn:
+                mi_cursor = conn.cursor()
+                mi_cursor.execute("SELECT CLAVE_CLIENTE, NOMBRECLIENTE FROM Clientes WHERE ESTADOCLIENTE = 0")
+                existencia = mi_cursor.fetchall()
+                if existencia:
+                    mensajeInicialEnFuncionesEspecificas()
+                    printNegrita("Lista de clientes suspendidos:")
+                    print(tabulate(existencia, headers = ["Clave del cliente", "Nombre"], tablefmt = 'pretty'))
+                    print("\nIngrese la clave del cliente a recuperar.")
+
+                    while True:
+                        respuesta = solicitarEnteroOSalir("Clave")
+                        if respuesta[1]: break
+                        busqueda = any(clave[0] == respuesta[0] for clave in existencia)
+                        if busqueda:
+                            printCyanNegrita("\n¿Desea recuperar el siguiente cliente? (Sí/No)")
+                            mi_cursor.execute("SELECT CLAVE_CLIENTE, NOMBRECLIENTE FROM Clientes WHERE CLAVE_CLIENTE = ?", (respuesta[0],))
+                            clienteEncontrado = mi_cursor.fetchone()
+                            print(tabulate([list(clienteEncontrado)], headers = ["Clave del cliente", "Nombre"], tablefmt = 'pretty'))
+
+                            if respuestaSiYNo():
+                                mi_cursor.execute("UPDATE Clientes SET ESTADOCLIENTE = 1 WHERE CLAVE_CLIENTE = ?", (clienteEncontrado[0],))
+                                printGreenNegrita("\nCliente recuperado con éxito.")
+                            else:
+                                printBlueNegrita("\nEl cliente no se recuperó.")
+                            indicarEnter()
+                            break
+                        else:
+                            printRedNegrita("Ingrese una clave válida o <regresar> para volver al menú anterior.\n")
+                            continue
+                else:
+                    printBlueNegrita('\nActualmente no se cuenta con clientes suspendidos.')
+                    indicarEnter()
+                    break
+                break
+        except Error as e:
+            inputRedNegrita(f'Se produjo el siguiente error: {e}')
+        except Exception as e:
+            inputRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
+        finally:
+            conn.close()
+
 
 #--------------------------------------1.1.4. OPCIÓN MOSTRAR CLIENTES.
 def mostrarClientes():
@@ -511,8 +644,8 @@ def mostrarClientes():
 def registrarCuentasPorCobrar():
     inputCyanNegrita("")
 
-#--------------------------------------1.2.2. OPCIÓN ELIMINAR CUENTAS POR COBRAR.
-def eliminarCuentasPorCobrar():
+#--------------------------------------1.2.2. OPCIÓN CANCELAR CUENTAS POR COBRAR.
+def cancelarCuentasPorCobrar():
     inputCyanNegrita("")
 
 #--------------------------------------1.2.3. OPCIÓN RECUPERAR CUENTAS POR COBRAR.
