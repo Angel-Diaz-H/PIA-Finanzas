@@ -8,6 +8,7 @@ from unidecode import unidecode
 import re
 from tabulate import tabulate
 from colorama import Fore, Style
+from datetime import datetime
 #
 #
 #
@@ -148,7 +149,7 @@ def darFormatoATexto(texto, sinEspacios = False):
     return texto
 
 def validarSalir(texto):
-    texto = darFormatoATexto(texto, True)
+    texto = darFormatoATexto(str(texto), True)
     if texto == '<REGRESAR>':
         return True
     return False
@@ -187,6 +188,23 @@ def solicitarEnteroOSalir(descripcion):
         else:
             printRedNegrita("Ingrese un número válido.\n")
 
+def solicitarRangoEnteroOSalir(opcionMin, opcionMax):
+    while True:
+        try:
+            opcionValida = int(input("Opción: "))
+            if opcionValida >= opcionMin and opcionValida <= opcionMax:
+                return opcionValida, False
+            elif validarSalir(opcionValida):
+                return True, True
+            else:
+                printRedNegrita(f"Ingrese un número válido ({opcionMin}-{opcionMax}).\n")
+        except ValueError:
+            printRedNegrita(f"Ingrese un número válido ({opcionMin}-{opcionMax}).\n")
+        except Error as e:
+            inputRedNegrita(f'Se produjo el siguiente error: {e}')
+        except Exception as e:
+            inputRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
+
 #--------------------------------------FUNCIONES AUXILIARES. 
 def mostrarOpcionesDeMenu(listaActual):
     print('Ingrese el número de la opción que desee realizar:')
@@ -199,9 +217,9 @@ def validarOpcionesNumericas(opcionMin, opcionMax):
             if opcionValida >= opcionMin and opcionValida <= opcionMax:
                 return opcionValida
             else:
-                printNegrita(f"\nIngrese un número válido ({opcionMin}-{opcionMax}).")
+                printRedNegrita(f"Ingrese un número válido ({opcionMin}-{opcionMax}).\n")
         except ValueError:
-            printNegrita(f"\nIngrese un número válido ({opcionMin}-{opcionMax}).")
+            printRedNegrita(f"Ingrese un número válido ({opcionMin}-{opcionMax}).\n")
 
 def contarCantidadOpcionesDeMenu(listaActual):
     cantidad = len(listaActual) - 1
@@ -355,6 +373,10 @@ lmenu_cuentaPorPagar = [('Opción', 'Descripción'),
               (4, 'Mostrar cuentas por pagar'),
               (5, 'Análisis de cuentas por pagar'),
               (6, 'Volver al menú principal')]
+lmenu_clientes_orden = [('Opción', 'Orden'),
+              (1, 'Por clave'),
+              (2, 'Por nombre'),
+              (3, 'Por estado')]
 #
 #
 #
@@ -616,11 +638,52 @@ def recuperarClientes():
         finally:
             conn.close()
 
-
 #--------------------------------------1.1.4. OPCIÓN MOSTRAR CLIENTES.
 def mostrarClientes():
-    inputCyanNegrita("")
-#
+    while True:
+        try:
+            with sqlite3.connect('CuentasPorCobrar.db') as conn:
+                mi_cursor = conn.cursor()
+                mi_cursor.execute("SELECT CLAVE_CLIENTE, NOMBRECLIENTE, ESTADOCLIENTE FROM Clientes")
+                existencia = mi_cursor.fetchall()
+                if existencia:
+                    mensajeInicialEnFuncionesEspecificas()
+                    existenciaImpresa = [(clave, nombre, "Activo" if estado else "Inactivo") for clave, nombre, estado in existencia]
+                    mostrarOpcionesDeMenu(lmenu_clientes_orden)
+                    respuesta = solicitarRangoEnteroOSalir(1, 3)
+                    
+                    if respuesta[1]: break
+                    printNegrita("\nLista de clientes:")
+                    if respuesta[0] == 1:
+                        existenciaImpresaOrdenada = sorted(existenciaImpresa, key = lambda x: x[0])
+                        print(tabulate(existenciaImpresaOrdenada, headers = ['Clave', 'Nombre', 'Estado'], tablefmt = 'pretty'))
+                    elif respuesta[0] == 2:
+                        existenciaImpresaOrdenada = sorted(existenciaImpresa, key = lambda x: x[1])
+                        print(tabulate(existenciaImpresaOrdenada, headers = ['Clave', 'Nombre', 'Estado'], tablefmt = 'pretty'))
+                    else:
+                        existenciaImpresaOrdenada = sorted(existenciaImpresa, key = lambda x: x[2])
+                        print(tabulate(existenciaImpresaOrdenada, headers = ['Clave', 'Nombre', 'Estado'], tablefmt = 'pretty'))
+                    
+                    printCyanNegrita("\n¿Desea exportar la información a Excel? (Sí/No)")
+                    if respuestaSiYNo():
+                        fechaHora = datetime.now().strftime("%d-%m-%Y_%H%M%S")
+                        nombre_archivo = f"ListadoClientes_{fechaHora}.xlsx"
+                        df = pd.DataFrame(existenciaImpresaOrdenada, columns = ["Clave", "Nombre", "Estado cliente"])
+                        df.to_excel(nombre_archivo, index = False)
+                        printGreenNegrita("\nInformación exportada exitosamente a Excel.")
+                        printBlueNegrita(f"Nombre del archivo:")
+                        printNegrita(f"{nombre_archivo}")
+                        indicarEnter()
+                else:
+                    printBlueNegrita('\nActualmente no se cuenta con clientes registrados.')
+                    indicarEnter()
+                break
+        except Error as e:
+            inputRedNegrita(f'Se produjo el siguiente error: {e}')
+        except Exception as e:
+            inputRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
+        finally:
+            conn.close()
 #
 #
 #
