@@ -9,6 +9,7 @@ import re
 from tabulate import tabulate
 from colorama import Fore, Style
 from datetime import datetime
+import datetime as dt
 #
 #
 #
@@ -138,7 +139,7 @@ def respuestaSiYNo():
         elif respuesta == 'NO':
             return False
         else:
-            printNegrita('\n\tIngrese una respuesta válida (Sí/No).')
+            inputRedNegrita('\n\tIngrese una respuesta válida (Sí/No).')
 
 def darFormatoATexto(texto, sinEspacios = False):
     texto = unidecode(texto).strip().upper()
@@ -203,7 +204,7 @@ def solicitarEntero_Salir_Mostrar(descripcion):
 def solicitarRangoEnteroOSalir(opcionMin, opcionMax):
     while True:
         try:
-            opcionValida = input("Opción: ")
+            opcionValida = inputNegrita("Opción: ")
             opcionValida = int(opcionValida)
             if opcionValida >= opcionMin and opcionValida <= opcionMax:
                 return opcionValida, False
@@ -218,6 +219,39 @@ def solicitarRangoEnteroOSalir(opcionMin, opcionMax):
             inputRedNegrita(f'Se produjo el siguiente error: {e}')
         except Exception as e:
             inputRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
+
+def solicitarFechaOSalir(noMayorActual = False):
+    while True:
+        fecha = inputNegrita("Fecha: ").strip()
+        try:
+            fecha = dt.datetime.strptime(fecha, "%d/%m/%Y").date()
+            if noMayorActual:
+                if fecha > fechaActual():
+                    printRedNegrita("Ingrese una fecha no mayor a hoy.\n")
+                    continue
+            return fecha, False
+        except ValueError:
+            if validarSalir(fecha):
+                return None, True
+            else:
+                printRedNegrita("Ingrese una fecha válida.\n")   
+
+def fechaActual():
+    fecha_actual = dt.date.today()
+    return fecha_actual
+
+def solicitarFlotanteOSalir(descripcion):
+    while True:
+        flotante = inputNegrita(f"{descripcion}: ").strip()
+        if re.match(r'^\d+(\.\d{1,2})?$', flotante):
+            flotante = float(flotante)
+            return flotante, False
+        elif validarSalir(flotante):
+            input("entro en el 2")
+            return None, True
+        else:
+            printRedNegrita("Ingrese un número válido.\n")
+            continue
 
 #--------------------------------------FUNCIONES AUXILIARES. 
 def mostrarOpcionesDeMenu(listaActual):
@@ -448,9 +482,7 @@ def menuPrincipal():
             else:
                 limpiar_consola()
                 opcion = 0
-
         opcion = 0
-        continue
 
 #--------------------------------------1.1. MENÚ CLIENTES.
 def menuClientes(ubicacion):
@@ -482,7 +514,6 @@ def menuClientes(ubicacion):
 
         opcion = 0
         limpiar_consola()
-        continue
 
 #--------------------------------------1.2. MENÚ CUENTAS POR PAGAR.
 def menuCuentasPorPagar(ubicacion):
@@ -518,7 +549,6 @@ def menuCuentasPorPagar(ubicacion):
 
         opcion = 0
         limpiar_consola()
-        continue
 #
 #
 #
@@ -556,7 +586,6 @@ def registrarClientes():
                 existencia = mi_cursor.fetchone()
                 if existencia: 
                     printRedNegrita("La empresa ya se encuentra registrada.\n")
-                    continue
                 else:
                     mi_cursor.execute("INSERT INTO Clientes(NOMBRECLIENTE, ESTADOCLIENTE) VALUES (?, ?)", (nombre, 1))
                     printCyanNegrita("\n¿Desea registrar el cliente? Confirme su respuesta (Sí/No).")
@@ -608,7 +637,6 @@ def editarNombreClientes():
                             break
                         else:
                             printRedNegrita("Ingrese una clave válida o <regresar> para volver al menú anterior.\n")
-                            continue
                 else:
                     printBlueNegrita('\nActualmente no se cuenta con clientes registrados.')
                     indicarEnter()
@@ -654,7 +682,6 @@ def suspenderCliente():
                             break
                         else:
                             printRedNegrita("Ingrese una clave válida o <regresar> para volver al menú anterior.\n")
-                            continue
                 else:
                     printBlueNegrita('\nActualmente no se cuenta con clientes activos.')
                     indicarEnter()
@@ -785,65 +812,69 @@ def registrarCuentasPorCobrar():
                 mi_cursor = conn.cursor()
                 mi_cursor.execute("SELECT CLAVE_CLIENTE, NOMBRECLIENTE FROM Clientes WHERE ESTADOCLIENTE = 1")
                 existencia = mi_cursor.fetchall()
-                if existencia:
-                    mensajeInicialEnFuncionesEspecificas()
-                    printBlueNegrita("Para ver los clientes disponibles ingrese:")
-                    printGreenNegrita("<Mostrar>")
-                    
-                    #Solicitar clave del cliente.
-                    continuarPrograma = None
-                    print("\nIngrese la clave del cliente a registrar cuenta por cobrar.")
-                    while True:
-                        respuesta = solicitarEntero_Salir_Mostrar("Clave")
-                        if respuesta[1]: break
-                        if respuesta[0] == '<MOSTRAR>': 
-                            printNegrita("\nLista de clientes:")
-                            print(tabulate(existencia, headers = ["Clave del cliente", "Nombre"], tablefmt = 'pretty'))
-                            continue     
-                        confirmarExistencia = any(clave[0] == respuesta[0] for clave in existencia)
-                        if not confirmarExistencia:
-                            printRedNegrita("Ingrese una clave válida o <regresar> para volver al menú anterior.\n") 
-                            continue
-                        for tupla in existencia:
-                            if tupla[0] == respuesta[0]: claveYNombreCliente = tupla
-                        continuarPrograma = True
-                        break
-                    
-                    if not continuarPrograma: break
-                    continuarPrograma = None
-                    print('')
-
-                    #Solicitar días de cartera
-                    mostrarOpcionesDeMenu(lmenu_cuentaPorPagar_diasDeCartera)
-                    respuesta = solicitarRangoEnteroOSalir(1, 5)
-                    if respuesta[1]: break
-                    for diasCartera in lmenu_cuentaPorPagar_diasDeCartera:
-                        if diasCartera[0] == respuesta[0]:
-                            diaCartera = diasCartera[2] 
-                            break
-                    
-                    #Solicitar fecha
-                    print("Ingrese la fecha de la realización de la nota (dd/mm/aaaa).")
-                    while True:
-                        fecha_registro = input("Fecha: ").strip()
-                        try:
-                            fecha_procesada = dt.datetime.strptime(fecha_registro, "%d/%m/%Y").date()
-                            if fecha_procesada > fechaActual():
-                                print("\nLa fecha ingresada no debe ser posterior a la fecha actual.\nIngrese una fecha válida.")
-                                continue
-                            break
-                        except ValueError:
-                            print("\nIngrese una fecha válida en formato (dd/mm/aaaa).")
-                    #Solicitar total
-                    #Mostrar y confirmar datos
-                    tuplaCuentasPorcobrar = (claveYNombreCliente[0], claveYNombreCliente[1], diaCartera)
-                    input(tuplaCuentasPorcobrar)
-                    #Crear tupla e insertar datos en sql
-
-                else:
+                
+                if not existencia:
                     printBlueNegrita('\nActualmente no se cuenta con clientes registrados o activos.')
                     indicarEnter()
                     break
+
+                mensajeInicialEnFuncionesEspecificas()
+                printBlueNegrita("Para ver los clientes disponibles ingrese:")
+                printGreenNegrita("<Mostrar>")
+                
+                #Solicitar clave del cliente.
+                continuarPrograma = None
+                print("\nIngrese la clave del cliente a registrar cuenta por cobrar.")
+                while True:
+                    respuesta = solicitarEntero_Salir_Mostrar("Clave")
+                    if respuesta[1]: break
+                    if respuesta[0] == '<MOSTRAR>': 
+                        printNegrita("\nLista de clientes:")
+                        print(tabulate(existencia, headers = ["Clave del cliente", "Nombre"], tablefmt = 'pretty'))
+                        continue     
+                    confirmarExistencia = any(clave[0] == respuesta[0] for clave in existencia)
+                    if not confirmarExistencia:
+                        printRedNegrita("Ingrese una clave válida o <regresar> para volver al menú anterior.\n") 
+                        continue
+                    for tupla in existencia:
+                        if tupla[0] == respuesta[0]: claveYNombreCliente = tupla
+                    continuarPrograma = True
+                    break
+                
+                if not continuarPrograma: break
+                continuarPrograma = None
+                print('')
+
+                #Solicitar días de cartera
+                mostrarOpcionesDeMenu(lmenu_cuentaPorPagar_diasDeCartera)
+                respuesta = solicitarRangoEnteroOSalir(1, 5)
+                if respuesta[1]: break
+                for diasCartera in lmenu_cuentaPorPagar_diasDeCartera:
+                    if diasCartera[0] == respuesta[0]:
+                        diaCartera = diasCartera[2] 
+                        break
+                
+                #Solicitar fecha
+                print("\nIngrese la fecha de la cuenta por cobrar (dd/mm/aaaa).")
+                fecha = solicitarFechaOSalir(True)
+                if fecha[1]: break
+                fechaImpresa = fecha[0].strftime("%d-%m-%Y")
+
+                #Solicitar total
+                print("\nIngrese el total de la cuenta por cobrar (Máximo dos decimales).")
+                total = solicitarFlotanteOSalir('Total')
+                if total[1]: break
+
+                tuplaImpresaCuentasPorCobrar = (claveYNombreCliente[0], claveYNombreCliente[1], diaCartera, fechaImpresa, total[0])
+                tuplaCuentasPorCobrar = (claveYNombreCliente[0], claveYNombreCliente[1], diaCartera, fecha[0], total[0])
+                printCyanNegrita("\n¿Desea registrar la cuenta por cobrar? Confirme su respuesta (Sí/No).")
+                print(tabulate([list(tuplaImpresaCuentasPorCobrar)], headers = ['Clave del cliente', 'Nombre del cliente', 'Días de cartera', 'Fecha', 'Total'], tablefmt = 'pretty'))
+                
+                if respuestaSiYNo():
+                    printBlueNegrita("")
+                else:
+                    printBlueNegrita("\nLa cuenta por cobrar no se registró.")
+                indicarEnter()
                 break
         except Error as e:
             inputRedNegrita(f'Se produjo el siguiente error: {e}')
