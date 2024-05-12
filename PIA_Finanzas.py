@@ -929,7 +929,15 @@ def analisisDeCuentasPorCobrar():
                 suma_mayor_90 = round(sum(float(item[12]) if isinstance(item[12], (int, float)) else 0 for item in listaReordenada), 2)
                 sumatoria = ['', '', '', '', '', suma_total, '', '', suma_al_corriente, suma_menor_30, suma_menor_60, suma_menor_90, suma_mayor_90]
 
+                pSumaAlCorriente = round(((suma_al_corriente / suma_total) * 100), 2)
+                pSumaMenor30 = round(((suma_menor_30 / suma_total) * 100), 2)
+                pSumaMenor60 = round(((suma_menor_60 / suma_total) * 100), 2)
+                pSumaMenor90 = round(((suma_menor_90 / suma_total) * 100), 2)
+                pSumaMayor90 = round(((suma_mayor_90 / suma_total) * 100), 2)
+                pSumatoria = ['', '', '', '', '', '', '', '', pSumaAlCorriente, pSumaMenor30, pSumaMenor60, pSumaMenor90, pSumaMayor90]
+                
                 listaReordenada.append(sumatoria)
+                listaReordenada.append(pSumatoria)
 
                 #Visualizar parte uno.
                 printGreenNegrita("\nCálculo de la parte uno realizado con éxito.\n")
