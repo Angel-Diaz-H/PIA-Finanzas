@@ -188,18 +188,32 @@ def solicitarEnteroOSalir(descripcion):
         else:
             printRedNegrita("Ingrese un número válido.\n")
 
+def solicitarEntero_Salir_Mostrar(descripcion):
+    while True:
+        respuesta = inputNegrita(f"{descripcion}: ")
+        if respuesta.isdigit():
+            return int(respuesta), False
+        elif validarSalir(respuesta):
+            return True, True
+        elif darFormatoATexto(respuesta) == '<MOSTRAR>':
+            return '<MOSTRAR>', False
+        else:
+            printRedNegrita("Ingrese un número válido.\n")
+
 def solicitarRangoEnteroOSalir(opcionMin, opcionMax):
     while True:
         try:
-            opcionValida = int(input("Opción: "))
+            opcionValida = input("Opción: ")
+            opcionValida = int(opcionValida)
             if opcionValida >= opcionMin and opcionValida <= opcionMax:
                 return opcionValida, False
-            elif validarSalir(opcionValida):
-                return True, True
             else:
                 printRedNegrita(f"Ingrese un número válido ({opcionMin}-{opcionMax}).\n")
         except ValueError:
-            printRedNegrita(f"Ingrese un número válido ({opcionMin}-{opcionMax}).\n")
+            if validarSalir(opcionValida):
+                return True, True
+            else:
+                printRedNegrita(f"Ingrese un número válido ({opcionMin}-{opcionMax}).\n")
         except Error as e:
             inputRedNegrita(f'Se produjo el siguiente error: {e}')
         except Exception as e:
@@ -282,7 +296,7 @@ def creacion_tablas():
                             ESTADOCLIENTE INTEGER NOT NULL);")
             mi_cursor.execute("CREATE TABLE IF NOT EXISTS CuentasPorCobrar \
                             (CLAVE_GUIA INTEGER PRIMARY KEY NOT NULL, \
-                            DIAS INTEGER NOT NULL,\
+                            DIASCARTERA INTEGER NOT NULL,\
                             FECHA timestamp NOT NULL, \
                             TOTAL INTEGER NOT NULL, \
                             CLAVE_CLIENTE INTEGER NOT NULL,\
@@ -362,21 +376,29 @@ lmenu_principal = [('Opción', 'Descripción'),
               (3, 'Salir')]
 lmenu_clientes = [('Opción', 'Descripción'),
               (1, 'Registrar clientes'),
-              (2, 'Suspender clientes'),
-              (3, 'Recuperar clientes'),
-              (4, 'Mostrar clientes'),
-              (5, 'Volver al menú principal')]
+              (2, 'Editar nombre de clientes'),
+              (3, 'Suspender clientes'),
+              (4, 'Recuperar clientes'),
+              (5, 'Mostrar clientes'),
+              (6, 'Volver al menú principal')]
 lmenu_cuentaPorPagar = [('Opción', 'Descripción'),
               (1, 'Registrar cuentras por pagar'),
-              (2, 'Cancelar cuentas por pagar'),
-              (3, 'Recuperar cuentas por pagar'),
-              (4, 'Mostrar cuentas por pagar'),
-              (5, 'Análisis de cuentas por pagar'),
-              (6, 'Volver al menú principal')]
+              (2, 'Editar cuentas por pagar'),
+              (3, 'Cancelar cuentas por pagar'),
+              (4, 'Recuperar cuentas por pagar'),
+              (5, 'Mostrar cuentas por pagar'),
+              (6, 'Análisis de cuentas por pagar'),
+              (7, 'Volver al menú principal')]
 lmenu_clientes_orden = [('Opción', 'Orden'),
               (1, 'Por clave'),
               (2, 'Por nombre'),
               (3, 'Por estado')]
+lmenu_cuentaPorPagar_diasDeCartera = [('Opción', 'Días de cartera', ''),
+              (1, '15 días', 15),
+              (2, '25 días', 25),
+              (3, '30 días', 30),
+              (4, '45 días', 45),
+              (5, '60 días', 60)]
 #
 #
 #
@@ -445,11 +467,14 @@ def menuClientes(ubicacion):
             registrarClientes()
         elif opcion == 2:
             mostrarTitulo(ubicacion)
-            suspenderCliente()
+            editarNombreClientes()
         elif opcion == 3:
             mostrarTitulo(ubicacion)
-            recuperarClientes()
+            suspenderCliente()
         elif opcion == 4:
+            mostrarTitulo(ubicacion)
+            recuperarClientes()
+        elif opcion == 5:
             mostrarTitulo(ubicacion)
             mostrarClientes()
         else:
@@ -474,14 +499,18 @@ def menuCuentasPorPagar(ubicacion):
             registrarCuentasPorCobrar()
         elif opcion == 2:
             mostrarTitulo(ubicacion)
-            cancelarCuentasPorCobrar()
+            #editar
+            print("")
         elif opcion == 3:
             mostrarTitulo(ubicacion)
-            recuperarCuentasPorCobrar()
+            cancelarCuentasPorCobrar()
         elif opcion == 4:
             mostrarTitulo(ubicacion)
-            mostrarCuentasPorCobrar()
+            recuperarCuentasPorCobrar()
         elif opcion == 5:
+            mostrarTitulo(ubicacion)
+            mostrarCuentasPorCobrar()
+        elif opcion == 6:
             mostrarTitulo(ubicacion)
             analisisDeCuentasPorCobrar()
         else:
@@ -513,7 +542,6 @@ def menuCuentasPorPagar(ubicacion):
 #--------------------------------------1.1.1. OPCIÓN REGISTRAR CLIENTES.
 def registrarClientes():
     mensajeInicialEnFuncionesEspecificas()
-    
     print('Ingrese el nombre del cliente (empresa).')
     while True:
         nombre = darFormatoATexto(inputNegrita('Nombre: '))
@@ -545,9 +573,56 @@ def registrarClientes():
         finally:
             conn.close()
 
-#--------------------------------------1.1.2. OPCIÓN SUSPENDER CLIENTES.
+#--------------------------------------1.1.2. OPCIÓN EDITAR CLIENTES.
+def editarNombreClientes():
+    while True:
+        try:
+            with sqlite3.connect('CuentasPorCobrar.db') as conn:
+                mi_cursor = conn.cursor()
+                mi_cursor.execute("SELECT CLAVE_CLIENTE, NOMBRECLIENTE, ESTADOCLIENTE FROM Clientes")
+                existencia = mi_cursor.fetchall()
+                if existencia:
+                    mensajeInicialEnFuncionesEspecificas()
+                    existenciaImpresa = [(clave, nombre, "Activo" if estado else "Inactivo") for clave, nombre, estado in existencia]
+                    printNegrita("Lista de clientes:")
+                    print(tabulate(existenciaImpresa, headers = ["Clave del cliente", "Nombre", "Estado "], tablefmt = 'pretty'))
+                    print("\nIngrese la clave del cliente a editar.")
+
+                    while True:
+                        respuesta = solicitarEnteroOSalir("Clave")
+                        if respuesta[1]: break
+                        busqueda = any(clave[0] == respuesta[0] for clave in existencia)
+                        if busqueda:
+                            print("\nIngrese el nuevo nombre de la empresa.")
+                            nuevoNombre = darFormatoATexto(inputNegrita('Nuevo nombre: '))
+                            if validarSalir(nuevoNombre): break
+                            if validarTextoValido(nuevoNombre): continue
+
+                            printCyanNegrita("\n¿Está seguro de actualizar el nombre? (Sí/No).")
+                            if respuestaSiYNo():
+                                mi_cursor.execute("UPDATE Clientes SET NOMBRECLIENTE = ? WHERE CLAVE_CLIENTE = ?", (nuevoNombre, respuesta[0]))
+                                printGreenNegrita("\nActualización del nombre realizado exitosamente.")
+                            else:
+                                printBlueNegrita("El nombre del cliente no se actualizó.")
+                            indicarEnter()
+                            break
+                        else:
+                            printRedNegrita("Ingrese una clave válida o <regresar> para volver al menú anterior.\n")
+                            continue
+                else:
+                    printBlueNegrita('\nActualmente no se cuenta con clientes registrados.')
+                    indicarEnter()
+                    break
+                break
+        except Error as e:
+            inputRedNegrita(f'Se produjo el siguiente error: {e}')
+        except Exception as e:
+            inputRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
+        finally:
+            conn.close()
+
+#--------------------------------------1.1.3. OPCIÓN SUSPENDER CLIENTES.
 def suspenderCliente():
-    
     while True:
         try:
             with sqlite3.connect('CuentasPorCobrar.db') as conn:
@@ -592,7 +667,7 @@ def suspenderCliente():
         finally:
             conn.close()
 
-#--------------------------------------1.1.3. OPCIÓN RECUPERAR CLIENTES.
+#--------------------------------------1.1.4. OPCIÓN RECUPERAR CLIENTES.
 def recuperarClientes():
     while True:
         try:
@@ -625,7 +700,6 @@ def recuperarClientes():
                             break
                         else:
                             printRedNegrita("Ingrese una clave válida o <regresar> para volver al menú anterior.\n")
-                            continue
                 else:
                     printBlueNegrita('\nActualmente no se cuenta con clientes suspendidos.')
                     indicarEnter()
@@ -638,7 +712,7 @@ def recuperarClientes():
         finally:
             conn.close()
 
-#--------------------------------------1.1.4. OPCIÓN MOSTRAR CLIENTES.
+#--------------------------------------1.1.5. OPCIÓN MOSTRAR CLIENTES.
 def mostrarClientes():
     while True:
         try:
@@ -705,21 +779,96 @@ def mostrarClientes():
 #
 #--------------------------------------1.2.1. OPCIÓN REGISTRAR CUENTAS POR COBRAR.
 def registrarCuentasPorCobrar():
-    inputCyanNegrita("")
+    while True:
+        try:
+            with sqlite3.connect('CuentasPorCobrar.db') as conn:
+                mi_cursor = conn.cursor()
+                mi_cursor.execute("SELECT CLAVE_CLIENTE, NOMBRECLIENTE FROM Clientes WHERE ESTADOCLIENTE = 1")
+                existencia = mi_cursor.fetchall()
+                if existencia:
+                    mensajeInicialEnFuncionesEspecificas()
+                    printBlueNegrita("Para ver los clientes disponibles ingrese:")
+                    printGreenNegrita("<Mostrar>")
+                    
+                    #Solicitar clave del cliente.
+                    continuarPrograma = None
+                    print("\nIngrese la clave del cliente a registrar cuenta por cobrar.")
+                    while True:
+                        respuesta = solicitarEntero_Salir_Mostrar("Clave")
+                        if respuesta[1]: break
+                        if respuesta[0] == '<MOSTRAR>': 
+                            printNegrita("\nLista de clientes:")
+                            print(tabulate(existencia, headers = ["Clave del cliente", "Nombre"], tablefmt = 'pretty'))
+                            continue     
+                        confirmarExistencia = any(clave[0] == respuesta[0] for clave in existencia)
+                        if not confirmarExistencia:
+                            printRedNegrita("Ingrese una clave válida o <regresar> para volver al menú anterior.\n") 
+                            continue
+                        for tupla in existencia:
+                            if tupla[0] == respuesta[0]: claveYNombreCliente = tupla
+                        continuarPrograma = True
+                        break
+                    
+                    if not continuarPrograma: break
+                    continuarPrograma = None
+                    print('')
+
+                    #Solicitar días de cartera
+                    mostrarOpcionesDeMenu(lmenu_cuentaPorPagar_diasDeCartera)
+                    respuesta = solicitarRangoEnteroOSalir(1, 5)
+                    if respuesta[1]: break
+                    for diasCartera in lmenu_cuentaPorPagar_diasDeCartera:
+                        if diasCartera[0] == respuesta[0]:
+                            diaCartera = diasCartera[2] 
+                            break
+                    
+                    #Solicitar fecha
+                    print("Ingrese la fecha de la realización de la nota (dd/mm/aaaa).")
+                    while True:
+                        fecha_registro = input("Fecha: ").strip()
+                        try:
+                            fecha_procesada = dt.datetime.strptime(fecha_registro, "%d/%m/%Y").date()
+                            if fecha_procesada > fechaActual():
+                                print("\nLa fecha ingresada no debe ser posterior a la fecha actual.\nIngrese una fecha válida.")
+                                continue
+                            break
+                        except ValueError:
+                            print("\nIngrese una fecha válida en formato (dd/mm/aaaa).")
+                    #Solicitar total
+                    #Mostrar y confirmar datos
+                    tuplaCuentasPorcobrar = (claveYNombreCliente[0], claveYNombreCliente[1], diaCartera)
+                    input(tuplaCuentasPorcobrar)
+                    #Crear tupla e insertar datos en sql
+
+                else:
+                    printBlueNegrita('\nActualmente no se cuenta con clientes registrados o activos.')
+                    indicarEnter()
+                    break
+                break
+        except Error as e:
+            inputRedNegrita(f'Se produjo el siguiente error: {e}')
+        except Exception as e:
+            inputRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
+        finally:
+            conn.close()
 
 #--------------------------------------1.2.2. OPCIÓN CANCELAR CUENTAS POR COBRAR.
+def editarCuentasPorCobrar():
+    inputCyanNegrita("")
+
+#--------------------------------------1.2.3. OPCIÓN CANCELAR CUENTAS POR COBRAR.
 def cancelarCuentasPorCobrar():
     inputCyanNegrita("")
 
-#--------------------------------------1.2.3. OPCIÓN RECUPERAR CUENTAS POR COBRAR.
+#--------------------------------------1.2.4. OPCIÓN RECUPERAR CUENTAS POR COBRAR.
 def recuperarCuentasPorCobrar():
     inputCyanNegrita("")
 
-#--------------------------------------1.2.4. OPCIÓN MOSTRAR CUENTAS POR COBRAR.
+#--------------------------------------1.2.5. OPCIÓN MOSTRAR CUENTAS POR COBRAR.
 def mostrarCuentasPorCobrar():
     inputCyanNegrita("")
 
-#--------------------------------------1.2.5. OPCIÓN ANÁLISIS DE CUENTAS POR COBRAR.
+#--------------------------------------1.2.6. OPCIÓN ANÁLISIS DE CUENTAS POR COBRAR.
 def analisisDeCuentasPorCobrar():
     inputCyanNegrita("")
 
