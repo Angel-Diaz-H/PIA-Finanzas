@@ -8,8 +8,11 @@ from unidecode import unidecode
 import re
 from tabulate import tabulate
 from colorama import Fore, Style
-from datetime import datetime
+from datetime import datetime, timedelta
 import datetime as dt
+from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.table import Table, TableStyleInfo
 #
 #
 #
@@ -417,12 +420,8 @@ lmenu_clientes = [('Opción', 'Descripción'),
               (6, 'Volver al menú principal')]
 lmenu_cuentaPorCobrar = [('Opción', 'Descripción'),
               (1, 'Registrar cuentras por cobrar'),
-              (2, 'Editar cuentas por cobrar'),
-              (3, 'Cancelar cuentas por cobrar'),
-              (4, 'Recuperar cuentas por cobrar'),
-              (5, 'Mostrar cuentas por cobrar'),
-              (6, 'Análisis de cuentas por cobrar'),
-              (7, 'Volver al menú principal')]
+              (2, 'Análisis de cuentas por cobrar'),
+              (3, 'Volver al menú principal')]
 lmenu_clientes_orden = [('Opción', 'Orden'),
               (1, 'Por clave'),
               (2, 'Por nombre'),
@@ -529,19 +528,6 @@ def menuCuentasPorCobrar(ubicacion):
             mostrarTitulo(ubicacion)
             registrarCuentasPorCobrar()
         elif opcion == 2:
-            mostrarTitulo(ubicacion)
-            #editar
-            print("")
-        elif opcion == 3:
-            mostrarTitulo(ubicacion)
-            cancelarCuentasPorCobrar()
-        elif opcion == 4:
-            mostrarTitulo(ubicacion)
-            recuperarCuentasPorCobrar()
-        elif opcion == 5:
-            mostrarTitulo(ubicacion)
-            mostrarCuentasPorCobrar()
-        elif opcion == 6:
             mostrarTitulo(ubicacion)
             analisisDeCuentasPorCobrar()
         else:
@@ -886,24 +872,106 @@ def registrarCuentasPorCobrar():
         finally:
             conn.close()
 
-#--------------------------------------1.2.2. OPCIÓN EDITAR CUENTAS POR COBRAR.
-def editarCuentasPorCobrar():
-    inputCyanNegrita("")
-
-#--------------------------------------1.2.3. OPCIÓN CANCELAR CUENTAS POR COBRAR.
-def cancelarCuentasPorCobrar():
-    inputCyanNegrita("")
-
-#--------------------------------------1.2.4. OPCIÓN RECUPERAR CUENTAS POR COBRAR.
-def recuperarCuentasPorCobrar():
-    inputCyanNegrita("")
-
-#--------------------------------------1.2.5. OPCIÓN MOSTRAR CUENTAS POR COBRAR.
-def mostrarCuentasPorCobrar():
-    inputCyanNegrita("")
-
 #--------------------------------------1.2.6. OPCIÓN ANÁLISIS DE CUENTAS POR COBRAR.
 def analisisDeCuentasPorCobrar():
-    inputCyanNegrita("")
+    while True:
+        try:
+            with sqlite3.connect('CuentasPorCobrar.db',
+                             detect_types = sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES) as conn:
+                mi_cursor = conn.cursor()
+
+                #Validar existencia de cuentas por cobrar registradas.
+                mi_cursor.execute("SELECT cpc.CLAVE_GUIA, cpc.DIASCARTERA, strftime('%d/%m/%Y', cpc.FECHA) AS 'FECHA', cpc.TOTAL, cpc.CLAVE_CLIENTE, c.NOMBRECLIENTE \
+                                  FROM CuentasPorCobrar AS cpc JOIN Clientes AS c \
+                                  ON cpc.CLAVE_CLIENTE = c.CLAVE_CLIENTE")
+                existencia = mi_cursor.fetchall()
+                if not existencia:
+                    printBlueNegrita('\nActualmente no se cuenta con cuentas por cobrar registradas o activas.')
+                    indicarEnter()
+                    break
+
+                mensajeInicialEnFuncionesEspecificas()
+                printBlueNegrita("Para ver los clientes disponibles ingrese:")
+                printGreenNegrita("<Mostrar>")
+                
+                #Solicitar fecha de antigüedad.
+                print("\nIngrese la fecha de antigüedad de saldos (dd/mm/aaaa).")
+                fechaAntiguedad = solicitarFechaOSalir(True)
+                if fechaAntiguedad[1]: break
+                fechaAntiguedad = fechaAntiguedad[0]
+
+                #Tupla existencia a lista.
+                lExistencias = [list(tupla) for tupla in existencia]
+                listaConFechaVencimiento = [lista + [(datetime.strptime(lista[2], '%d/%m/%Y') + timedelta(days=lista[1])).strftime('%d/%m/%Y')] for lista in lExistencias]
+                listaConDiasVencidos = [lista + [max((fechaAntiguedad - datetime.strptime(lista[6], '%d/%m/%Y').date()).days, 0)] for lista in listaConFechaVencimiento]
+
+                for lista in listaConDiasVencidos:
+                    dias_vencidos = lista[7]
+                    if dias_vencidos == 0:
+                        lista.extend([lista[3], '', '', '', ''])
+                    elif 0 < dias_vencidos <= 29:
+                        lista.extend(['', lista[3], '', '', ''])
+                    elif 30 <= dias_vencidos <= 59:
+                        lista.extend(['', '', lista[3], '', ''])
+                    elif 60 <= dias_vencidos <= 89:
+                        lista.extend(['', '', '', lista[3], ''])
+                    elif dias_vencidos > 90:
+                        lista.extend(['', '', '', '', lista[3]])
+
+                listaReordenada = [[lista[4], lista[5]] + lista[:4] + lista[6:] for lista in listaConDiasVencidos]
+
+                #Sumatoria y porcentaje.
+                suma_total = round(sum(lista[5] for lista in listaReordenada), 2)
+                suma_al_corriente = round(sum(float(item[8]) if isinstance(item[8], (int, float)) else 0 for item in listaReordenada), 2)
+                suma_menor_30 = round(sum(float(item[9]) if isinstance(item[9], (int, float)) else 0 for item in listaReordenada), 2)
+                suma_menor_60 = round(sum(float(item[10]) if isinstance(item[10], (int, float)) else 0 for item in listaReordenada), 2)
+                suma_menor_90 = round(sum(float(item[11]) if isinstance(item[11], (int, float)) else 0 for item in listaReordenada), 2)
+                suma_mayor_90 = round(sum(float(item[12]) if isinstance(item[12], (int, float)) else 0 for item in listaReordenada), 2)
+                sumatoria = ['', '', '', '', '', suma_total, '', '', suma_al_corriente, suma_menor_30, suma_menor_60, suma_menor_90, suma_mayor_90]
+
+                listaReordenada.append(sumatoria)
+
+                #Visualizar parte uno.
+                printGreenNegrita("\nCálculo de la parte uno realizado con éxito.\n")
+                printCyanNegrita("¿Desea visualizarlo? (Sí/No)")
+                if respuestaSiYNo():
+                    print(tabulate(listaReordenada, headers = ['Clave cliente', 'Nombre cliente', 'Guía', 'Días Cartera', 'Fecha', 'Total', 'Fecha de vencimiento', 'Días vencidos', 'Al corriente', '< a 30', '< a 60', '< a 90', '> a 90'], tablefmt = 'pretty'))
+
+                #Exportar parte uno.
+                printCyanNegrita("\n¿Desea exportarlo a Excel? (Sí/No)")
+                if respuestaSiYNo():
+                    df = pd.DataFrame(listaReordenada, columns = ['Clave cliente', 'Nombre cliente', 'Guía', 'Días Cartera', 'Fecha', 'Total', 'Fecha de vencimiento', 'Días vencidos', 'Al corriente', '< a 30', '< a 60', '< a 90', '> a 90'])
+                    fechaHora = datetime.now().strftime("%d-%m-%Y_%H%M%S")
+                    nombre_archivo = f"P1_Análisis{fechaHora}.xlsx"
+                    df.to_excel(nombre_archivo, index=False)
+                    libro = load_workbook(nombre_archivo)
+                    hoja = libro.active
+
+                    for i, columna in enumerate(hoja.columns, start=1):
+                        max_length = 0
+                        columna = [str(celda.value) for celda in columna]
+                        for celda in columna:
+                            try:
+                                if len(celda) > max_length: max_length = len(celda)
+                            except:
+                                pass
+                        ajuste_ancho = (max_length + 2)
+                        hoja.column_dimensions[get_column_letter(i)].width = ajuste_ancho
+                    tab_range = "A1:M" + str(hoja.max_row)
+                    tabla = Table(displayName="Tabla", ref=tab_range)
+                    hoja.add_table(tabla) 
+                    libro.save(nombre_archivo)
+
+                    printGreenNegrita("\nInformación exportada exitosamente a Excel.")
+                    printBlueNegrita(f"Nombre del archivo:")
+                    printNegrita(f"{nombre_archivo}")
+                indicarEnter()
+                break
+        except Error as e:
+            inputRedNegrita(f'Se produjo el siguiente error: {e}')
+        except Exception as e:
+            inputRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
+        finally:
+            conn.close()
 
 menuPrincipal()
