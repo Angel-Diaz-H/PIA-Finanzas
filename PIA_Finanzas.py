@@ -367,7 +367,7 @@ def insertar_cuentasporcobrar(df):
             mi_cursor = conn.cursor()
             for i, row in df.iterrows():
                 fecha = row['Fecha'].strftime('%Y-%m-%d %H:%M:%S')  # Convertir la fecha a una cadena de texto
-                mi_cursor.execute("INSERT INTO CuentasPorCobrar (CLAVE_GUIA, DIAS, FECHA, TOTAL, CLAVE_CLIENTE) \
+                mi_cursor.execute("INSERT INTO CuentasPorCobrar (CLAVE_GUIA, DIASCARTERA, FECHA, TOTAL, CLAVE_CLIENTE) \
                                   SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS(SELECT 1 FROM CuentasPorCobrar WHERE CLAVE_GUIA = ?) AND \
                                   EXISTS(SELECT 1 FROM Clientes WHERE CLAVE_CLIENTE = ?)", (row['Guía'], row['Días '], fecha, row['Total'], row['Cliente'], row['Guía'], row['Cliente']))
             printGreenNegrita("Los datos se han insertado correctamente en la tabla CuentasPorCobrar.\n")
@@ -406,7 +406,7 @@ limpiar_consola()
 #--------------------------------------LISTAS DE MENÚS.
 lmenu_principal = [('Opción', 'Descripción'),
               (1, 'Clientes'),
-              (2, 'Cuentas por pagar'),
+              (2, 'Cuentas por cobrar'),
               (3, 'Salir')]
 lmenu_clientes = [('Opción', 'Descripción'),
               (1, 'Registrar clientes'),
@@ -415,19 +415,19 @@ lmenu_clientes = [('Opción', 'Descripción'),
               (4, 'Recuperar clientes'),
               (5, 'Mostrar clientes'),
               (6, 'Volver al menú principal')]
-lmenu_cuentaPorPagar = [('Opción', 'Descripción'),
-              (1, 'Registrar cuentras por pagar'),
-              (2, 'Editar cuentas por pagar'),
-              (3, 'Cancelar cuentas por pagar'),
-              (4, 'Recuperar cuentas por pagar'),
-              (5, 'Mostrar cuentas por pagar'),
-              (6, 'Análisis de cuentas por pagar'),
+lmenu_cuentaPorCobrar = [('Opción', 'Descripción'),
+              (1, 'Registrar cuentras por cobrar'),
+              (2, 'Editar cuentas por cobrar'),
+              (3, 'Cancelar cuentas por cobrar'),
+              (4, 'Recuperar cuentas por cobrar'),
+              (5, 'Mostrar cuentas por cobrar'),
+              (6, 'Análisis de cuentas por cobrar'),
               (7, 'Volver al menú principal')]
 lmenu_clientes_orden = [('Opción', 'Orden'),
               (1, 'Por clave'),
               (2, 'Por nombre'),
               (3, 'Por estado')]
-lmenu_cuentaPorPagar_diasDeCartera = [('Opción', 'Días de cartera', ''),
+lmenu_cuentaPorCobrar_diasDeCartera = [('Opción', 'Días de cartera', ''),
               (1, '15 días', 15),
               (2, '25 días', 25),
               (3, '30 días', 30),
@@ -472,7 +472,7 @@ def menuPrincipal():
         if opcion == 1:
             menuClientes(ubicacion)
         elif opcion == 2:
-            menuCuentasPorPagar(ubicacion)
+            menuCuentasPorCobrar(ubicacion)
         else:
             printCyanNegrita('\n¿Está seguro que desea salir? (Sí/No)')
             if respuestaSiYNo():
@@ -515,15 +515,15 @@ def menuClientes(ubicacion):
         opcion = 0
         limpiar_consola()
 
-#--------------------------------------1.2. MENÚ CUENTAS POR PAGAR.
-def menuCuentasPorPagar(ubicacion):
+#--------------------------------------1.2. MENÚ CUENTAS POR COBRAR.
+def menuCuentasPorCobrar(ubicacion):
     ubicacionOriginal = ubicacion.copy()
     opcion = 0
 
     while True:    
         ubicacion = ubicacionOriginal.copy()
         if opcion == 0:
-            opcion, ubicacion = mostrarYValidarMenu(ubicacion, opcion, lmenu_cuentaPorPagar)
+            opcion, ubicacion = mostrarYValidarMenu(ubicacion, opcion, lmenu_cuentaPorCobrar)
 
         if opcion == 1:
             mostrarTitulo(ubicacion)
@@ -808,7 +808,8 @@ def mostrarClientes():
 def registrarCuentasPorCobrar():
     while True:
         try:
-            with sqlite3.connect('CuentasPorCobrar.db') as conn:
+            with sqlite3.connect('CuentasPorCobrar.db',
+                             detect_types = sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES) as conn:
                 mi_cursor = conn.cursor()
                 mi_cursor.execute("SELECT CLAVE_CLIENTE, NOMBRECLIENTE FROM Clientes WHERE ESTADOCLIENTE = 1")
                 existencia = mi_cursor.fetchall()
@@ -846,10 +847,10 @@ def registrarCuentasPorCobrar():
                 print('')
 
                 #Solicitar días de cartera
-                mostrarOpcionesDeMenu(lmenu_cuentaPorPagar_diasDeCartera)
+                mostrarOpcionesDeMenu(lmenu_cuentaPorCobrar_diasDeCartera)
                 respuesta = solicitarRangoEnteroOSalir(1, 5)
                 if respuesta[1]: break
-                for diasCartera in lmenu_cuentaPorPagar_diasDeCartera:
+                for diasCartera in lmenu_cuentaPorCobrar_diasDeCartera:
                     if diasCartera[0] == respuesta[0]:
                         diaCartera = diasCartera[2] 
                         break
@@ -866,12 +867,14 @@ def registrarCuentasPorCobrar():
                 if total[1]: break
 
                 tuplaImpresaCuentasPorCobrar = (claveYNombreCliente[0], claveYNombreCliente[1], diaCartera, fechaImpresa, total[0])
-                tuplaCuentasPorCobrar = (claveYNombreCliente[0], claveYNombreCliente[1], diaCartera, fecha[0], total[0])
+                tuplaCuentasPorCobrar = (claveYNombreCliente[0], diaCartera, fecha[0], total[0])
                 printCyanNegrita("\n¿Desea registrar la cuenta por cobrar? Confirme su respuesta (Sí/No).")
                 print(tabulate([list(tuplaImpresaCuentasPorCobrar)], headers = ['Clave del cliente', 'Nombre del cliente', 'Días de cartera', 'Fecha', 'Total'], tablefmt = 'pretty'))
                 
                 if respuestaSiYNo():
-                    printBlueNegrita("")
+                    mi_cursor.execute('INSERT INTO CuentasPorCobrar(CLAVE_CLIENTE, DIASCARTERA, FECHA, TOTAL) VALUES \
+                                      (?, ?, ?, ?)', tuplaCuentasPorCobrar)
+                    printGreenNegrita("\nRegistro de cuenta por cobrar existoso")
                 else:
                     printBlueNegrita("\nLa cuenta por cobrar no se registró.")
                 indicarEnter()
@@ -883,7 +886,7 @@ def registrarCuentasPorCobrar():
         finally:
             conn.close()
 
-#--------------------------------------1.2.2. OPCIÓN CANCELAR CUENTAS POR COBRAR.
+#--------------------------------------1.2.2. OPCIÓN EDITAR CUENTAS POR COBRAR.
 def editarCuentasPorCobrar():
     inputCyanNegrita("")
 
