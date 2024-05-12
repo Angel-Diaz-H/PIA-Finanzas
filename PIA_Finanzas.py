@@ -974,6 +974,19 @@ def analisisDeCuentasPorCobrar():
                     printBlueNegrita(f"Nombre del archivo:")
                     printNegrita(f"{nombre_archivo}")
                 indicarEnter()
+
+                ###############################################################################################3
+                # Crear el DataFrame
+                df = pd.DataFrame(listaReordenada, columns = ['Clave cliente', 'Nombre cliente', 'Guía', 'Días Cartera', 'Fecha', 'Total', 'Fecha de vencimiento', 'Días vencidos', 'Al corriente', '< a 30', '< a 60', '< a 90', '> a 90'])
+                df = df[['Nombre cliente', 'Al corriente', '< a 30', '< a 60', '< a 90', '> a 90']]
+                for columna in ['Al corriente', '< a 30', '< a 60', '< a 90', '> a 90']:
+                    df[columna] = pd.to_numeric(df[columna], errors='coerce')
+                df_agrupado = df.groupby('Nombre cliente').sum()
+                totales = df_agrupado.sum()
+                df_totales = pd.DataFrame(totales).T
+                df_totales.index = ['Total']
+                df_final = pd.concat([df_agrupado, df_totales])
+                input(df_final)
                 break
         except Error as e:
             inputRedNegrita(f'Se produjo el siguiente error: {e}')
