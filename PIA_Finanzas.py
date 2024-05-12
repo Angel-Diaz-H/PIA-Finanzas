@@ -949,32 +949,6 @@ def analisisDeCuentasPorCobrar():
                     printBlueNegrita("\nAntiguedad de saldos:")
                     print(tabulate(listaReordenada, headers = ['Clave cliente', 'Nombre cliente', 'Guía', 'Días Cartera', 'Fecha', 'Total', 'Fecha de vencimiento', 'Días vencidos', 'Al corriente', '< a 30', '< a 60', '< a 90', '< a 180', '> a 180'], tablefmt = 'pretty'))
 
-                #Exportar parte uno.
-                '''printCyanNegrita("\n¿Desea exportarlo a Excel? (Sí/No)")
-                if respuestaSiYNo():
-                    df = pd.DataFrame(listaReordenada, columns = ['Clave cliente', 'Nombre cliente', 'Guía', 'Días Cartera', 'Fecha', 'Total', 'Fecha de vencimiento', 'Días vencidos', 'Al corriente', '< a 30', '< a 60', '< a 90', '< a 180', '> a 180'])
-                    fechaHora = datetime.now().strftime("%d-%m-%Y_%H%M%S")
-                    nombre_archivo = f"P1_Análisis{fechaHora}.xlsx"
-                    df.to_excel(nombre_archivo, index=False)
-                    libro = load_workbook(nombre_archivo)
-                    hoja = libro.active
-                    for i, columna in enumerate(hoja.columns, start=1):
-                        max_length = 0
-                        columna = [str(celda.value) for celda in columna]
-                        for celda in columna:
-                            try:
-                                if len(celda) > max_length: max_length = len(celda)
-                            except:
-                                pass
-                        ajuste_ancho = (max_length + 2)
-                        hoja.column_dimensions[get_column_letter(i)].width = ajuste_ancho
-                    tab_range = "A1:N" + str(hoja.max_row)
-                    tabla = Table(displayName="Tabla", ref=tab_range)
-                    hoja.add_table(tabla) 
-                    libro.save(nombre_archivo)
-                    printGreenNegrita("\nInformación exportada exitosamente a Excel.")
-                    printBlueNegrita(f"Nombre del archivo:")
-                    printNegrita(f"{nombre_archivo}")'''
 
                 ###########################################################################REPORTE CORPORATIVO.
                 #Crear el DataFrame
@@ -1029,7 +1003,6 @@ def analisisDeCuentasPorCobrar():
                 lista_final_con_porcentajes_y_categoria = df_copia.reset_index().values.tolist()
 
                 ###########################################################################INGLÉS
-                ###########################################################################INGLÉS
                 # Crear un diccionario para mapear los encabezados al inglés
                 traduccion = {
                     'Nombre cliente': 'Customer Name',
@@ -1076,12 +1049,79 @@ def analisisDeCuentasPorCobrar():
                     printBlueNegrita("\nReporte corporativo:")
                     print(tabulate(lista_final_con_porcentajes_y_categoria, headers = ['Nombre cliente', 'Al corriente', '< a 30', '< a 60', '< a 90', '< a 180', '> a 180', 'Categoría'], tablefmt = 'pretty'))
                     print("")
-                    printBlueNegrita("\nCorporate reporting:")
-                    print(tabulate(lista_final_con_porcentajes_y_categoria_ingles, headers = ['Customer Name', 'Current', '< 30', '< 60', '< 90', '< 180', '> 180', 'Category'], tablefmt = 'pretty'))
 
-                ###########################################################################IDENTIFICACIÓN.
-                printBlueNegrita("\nConclusiones.")
-                print("Cliente")
+                    # Cuentas incobrables
+                    cuentas_incobrables_monto = df_copia_ingles.loc['Total', '< 90'] + df_copia_ingles.loc['Total', '< 180'] + df_copia_ingles.loc['Total', '> 180']
+                    total_sin_categoria = df_copia_ingles.drop(columns='Category').loc['Total'].sum()
+                    cuentas_incobrables_porcentaje = (cuentas_incobrables_monto / total_sin_categoria * 100).round(2)
+                    printBlueNegrita("Estimación de cuentas incobrables:")
+                    print(f"${cuentas_incobrables_monto} ({cuentas_incobrables_porcentaje}%).")
+
+                    # Mejor cliente
+                    clientes_buenos = df_copia_ingles[df_copia_ingles['Category'] == 'Good']
+                    clientes_buenos_sin_categoria = clientes_buenos.drop(columns='Category')
+                    mejor_cliente = clientes_buenos_sin_categoria.sum(axis=1).idxmin()
+                    printBlueNegrita("\nEl mejor cliente:")
+                    print(f'{mejor_cliente}.')
+
+                    # Clientes que dejaron de comprar
+                    clientes_dejaron_comprar = df_copia_ingles[(df_copia_ingles['> 180'] > 0) & (df_copia_ingles.index != 'Total') & (df_copia_ingles.index != 'Percentage')]
+                    nombres_clientes_dejaron_comprar = clientes_dejaron_comprar.index.tolist()
+                    printBlueNegrita("\nClientes que dejaron de comprar:")
+                    nombres = [[nombre] for nombre in nombres_clientes_dejaron_comprar]
+                    print(tabulate(nombres, headers=['Nombres'], tablefmt='pretty'))
+
+
+                    printBlueNegrita("\n\n\nCorporate reporting:")
+                    print(tabulate(lista_final_con_porcentajes_y_categoria_ingles, headers = ['Customer Name', 'Current', '< 30', '< 60', '< 90', '< 180', '> 180', 'Category'], tablefmt = 'pretty'))
+                    printBlueNegrita("Allowance for doubtful accounts:")
+                    print(f"${cuentas_incobrables_monto} ({cuentas_incobrables_porcentaje}%)")
+                    printBlueNegrita("\nThe best customer:")
+                    print(f'{mejor_cliente}.')
+                    printBlueNegrita("\nCustomers who stopped buying:")
+                    print(tabulate(nombres, headers=['Names'], tablefmt='pretty'))
+
+
+                ###########################################################################EXCEL.
+                #Exportar parte uno.
+                printCyanNegrita("\n¿Desea exportarlo a Excel? (Sí/No)")
+                if respuestaSiYNo():
+                    df = pd.DataFrame(listaReordenada, columns = ['Clave cliente', 'Nombre cliente', 'Guía', 'Días Cartera', 'Fecha', 'Total', 'Fecha de vencimiento', 'Días vencidos', 'Al corriente', '< a 30', '< a 60', '< a 90', '< a 180', '> a 180'])
+                    fechaHora = datetime.now().strftime("%d-%m-%Y_%H%M%S")
+                    nombre_archivo = f"Análisis_cuentas_por_cobrar_{fechaHora}.xlsx"
+                    df.to_excel(nombre_archivo, index=False)
+                    libro = load_workbook(nombre_archivo)
+                    hoja = libro.active
+                    # Cambiar el nombre de la hoja
+                    hoja.title = 'Antigüedad de saldos'
+
+                    for i, columna in enumerate(hoja.columns, start=1):
+                        max_length = 0
+                        columna = [str(celda.value) for celda in columna]
+                        for celda in columna:
+                            try:
+                                if len(celda) > max_length: max_length = len(celda)
+                            except:
+                                pass
+                        ajuste_ancho = (max_length + 2)
+                        hoja.column_dimensions[get_column_letter(i)].width = ajuste_ancho
+                    tab_range = "A1:N" + str(hoja.max_row)
+                    tabla = Table(displayName="Tabla", ref=tab_range)
+                    hoja.add_table(tabla) 
+                    libro.save(nombre_archivo)
+
+                    # Crear un nuevo escritor de Excel con pandas
+                    with pd.ExcelWriter(nombre_archivo, engine='openpyxl', mode='a') as writer:
+                        # Exportar el DataFrame en español a la segunda hoja
+                        df_copia.to_excel(writer, sheet_name='Español')
+
+                        # Exportar el DataFrame en inglés a la tercera hoja
+                        df_copia_ingles.to_excel(writer, sheet_name='Inglés')
+                    del writer
+
+                    printGreenNegrita("\nInformación exportada exitosamente a Excel.")
+                    printBlueNegrita(f"Nombre del archivo:")
+                    printNegrita(f"{nombre_archivo}")   
                 indicarEnter()
                 break
         except Error as e:
@@ -1090,5 +1130,4 @@ def analisisDeCuentasPorCobrar():
             inputRedNegrita(f'Se produjo el siguiente error: {sys.exc_info()[0]}')
         finally:
             conn.close()
-
 menuPrincipal()
