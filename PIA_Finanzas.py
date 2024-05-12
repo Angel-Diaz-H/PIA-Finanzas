@@ -142,7 +142,7 @@ def respuestaSiYNo():
         elif respuesta == 'NO':
             return False
         else:
-            inputRedNegrita('\n\tIngrese una respuesta válida (Sí/No).')
+            printRedNegrita('\n\tIngrese una respuesta válida (Sí/No).')
 
 def darFormatoATexto(texto, sinEspacios = False):
     texto = unidecode(texto).strip().upper()
@@ -891,11 +891,10 @@ def analisisDeCuentasPorCobrar():
                     break
 
                 mensajeInicialEnFuncionesEspecificas()
-                printBlueNegrita("Para ver los clientes disponibles ingrese:")
-                printGreenNegrita("<Mostrar>")
-                
+
+                #######################################################################33#ANTIGUEDAD DE SALDOS.
                 #Solicitar fecha de antigüedad.
-                print("\nIngrese la fecha de antigüedad de saldos (dd/mm/aaaa).")
+                print("Ingrese la fecha de antigüedad de saldos (dd/mm/aaaa).")
                 fechaAntiguedad = solicitarFechaOSalir(True)
                 if fechaAntiguedad[1]: break
                 fechaAntiguedad = fechaAntiguedad[0]
@@ -908,15 +907,17 @@ def analisisDeCuentasPorCobrar():
                 for lista in listaConDiasVencidos:
                     dias_vencidos = lista[7]
                     if dias_vencidos == 0:
-                        lista.extend([lista[3], '', '', '', ''])
+                        lista.extend([lista[3], '', '', '', '', ''])
                     elif 0 < dias_vencidos <= 29:
-                        lista.extend(['', lista[3], '', '', ''])
+                        lista.extend(['', lista[3], '', '', '', ''])
                     elif 30 <= dias_vencidos <= 59:
-                        lista.extend(['', '', lista[3], '', ''])
+                        lista.extend(['', '', lista[3], '', '', ''])
                     elif 60 <= dias_vencidos <= 89:
-                        lista.extend(['', '', '', lista[3], ''])
-                    elif dias_vencidos > 90:
-                        lista.extend(['', '', '', '', lista[3]])
+                        lista.extend(['', '', '', lista[3], '', ''])
+                    elif 90 <= dias_vencidos <= 179:
+                        lista.extend(['', '', '', '', lista[3], ''])
+                    elif dias_vencidos >= 180:
+                        lista.extend(['', '', '', '', '', lista[3]])
 
                 listaReordenada = [[lista[4], lista[5]] + lista[:4] + lista[6:] for lista in listaConDiasVencidos]
 
@@ -926,35 +927,37 @@ def analisisDeCuentasPorCobrar():
                 suma_menor_30 = round(sum(float(item[9]) if isinstance(item[9], (int, float)) else 0 for item in listaReordenada), 2)
                 suma_menor_60 = round(sum(float(item[10]) if isinstance(item[10], (int, float)) else 0 for item in listaReordenada), 2)
                 suma_menor_90 = round(sum(float(item[11]) if isinstance(item[11], (int, float)) else 0 for item in listaReordenada), 2)
-                suma_mayor_90 = round(sum(float(item[12]) if isinstance(item[12], (int, float)) else 0 for item in listaReordenada), 2)
-                sumatoria = ['', '', '', '', '', suma_total, '', '', suma_al_corriente, suma_menor_30, suma_menor_60, suma_menor_90, suma_mayor_90]
+                suma_menor_180 = round(sum(float(item[12]) if isinstance(item[12], (int, float)) else 0 for item in listaReordenada), 2)
+                suma_mayor_180 = round(sum(float(item[13]) if isinstance(item[13], (int, float)) else 0 for item in listaReordenada), 2)
+                sumatoria = ['', '', '', '', '', suma_total, '', '', suma_al_corriente, suma_menor_30, suma_menor_60, suma_menor_90, suma_menor_180, suma_mayor_180]
 
                 pSumaAlCorriente = round(((suma_al_corriente / suma_total) * 100), 2)
                 pSumaMenor30 = round(((suma_menor_30 / suma_total) * 100), 2)
                 pSumaMenor60 = round(((suma_menor_60 / suma_total) * 100), 2)
                 pSumaMenor90 = round(((suma_menor_90 / suma_total) * 100), 2)
-                pSumaMayor90 = round(((suma_mayor_90 / suma_total) * 100), 2)
-                pSumatoria = ['', '', '', '', '', '', '', '', pSumaAlCorriente, pSumaMenor30, pSumaMenor60, pSumaMenor90, pSumaMayor90]
+                pSumaMenor180 = round(((suma_menor_180 / suma_total) * 100), 2)
+                pSumaMayor180 = round(((suma_mayor_180 / suma_total) * 100), 2)
+                pSumatoria = ['', '', '', '', '', '', '', '', pSumaAlCorriente, pSumaMenor30, pSumaMenor60, pSumaMenor90, pSumaMenor180, pSumaMayor180]
                 
                 listaReordenada.append(sumatoria)
                 listaReordenada.append(pSumatoria)
 
                 #Visualizar parte uno.
-                printGreenNegrita("\nCálculo de la parte uno realizado con éxito.\n")
+                printGreenNegrita("\nAnálisis de antigüedad de saldos realizado con éxito.")
                 printCyanNegrita("¿Desea visualizarlo? (Sí/No)")
                 if respuestaSiYNo():
-                    print(tabulate(listaReordenada, headers = ['Clave cliente', 'Nombre cliente', 'Guía', 'Días Cartera', 'Fecha', 'Total', 'Fecha de vencimiento', 'Días vencidos', 'Al corriente', '< a 30', '< a 60', '< a 90', '> a 90'], tablefmt = 'pretty'))
+                    printBlueNegrita("\nAntiguedad de saldos:")
+                    print(tabulate(listaReordenada, headers = ['Clave cliente', 'Nombre cliente', 'Guía', 'Días Cartera', 'Fecha', 'Total', 'Fecha de vencimiento', 'Días vencidos', 'Al corriente', '< a 30', '< a 60', '< a 90', '< a 180', '> a 180'], tablefmt = 'pretty'))
 
                 #Exportar parte uno.
-                printCyanNegrita("\n¿Desea exportarlo a Excel? (Sí/No)")
+                '''printCyanNegrita("\n¿Desea exportarlo a Excel? (Sí/No)")
                 if respuestaSiYNo():
-                    df = pd.DataFrame(listaReordenada, columns = ['Clave cliente', 'Nombre cliente', 'Guía', 'Días Cartera', 'Fecha', 'Total', 'Fecha de vencimiento', 'Días vencidos', 'Al corriente', '< a 30', '< a 60', '< a 90', '> a 90'])
+                    df = pd.DataFrame(listaReordenada, columns = ['Clave cliente', 'Nombre cliente', 'Guía', 'Días Cartera', 'Fecha', 'Total', 'Fecha de vencimiento', 'Días vencidos', 'Al corriente', '< a 30', '< a 60', '< a 90', '< a 180', '> a 180'])
                     fechaHora = datetime.now().strftime("%d-%m-%Y_%H%M%S")
                     nombre_archivo = f"P1_Análisis{fechaHora}.xlsx"
                     df.to_excel(nombre_archivo, index=False)
                     libro = load_workbook(nombre_archivo)
                     hoja = libro.active
-
                     for i, columna in enumerate(hoja.columns, start=1):
                         max_length = 0
                         columna = [str(celda.value) for celda in columna]
@@ -965,28 +968,121 @@ def analisisDeCuentasPorCobrar():
                                 pass
                         ajuste_ancho = (max_length + 2)
                         hoja.column_dimensions[get_column_letter(i)].width = ajuste_ancho
-                    tab_range = "A1:M" + str(hoja.max_row)
+                    tab_range = "A1:N" + str(hoja.max_row)
                     tabla = Table(displayName="Tabla", ref=tab_range)
                     hoja.add_table(tabla) 
                     libro.save(nombre_archivo)
-
                     printGreenNegrita("\nInformación exportada exitosamente a Excel.")
                     printBlueNegrita(f"Nombre del archivo:")
-                    printNegrita(f"{nombre_archivo}")
-                indicarEnter()
+                    printNegrita(f"{nombre_archivo}")'''
 
-                ###############################################################################################3
-                # Crear el DataFrame
-                df = pd.DataFrame(listaReordenada, columns = ['Clave cliente', 'Nombre cliente', 'Guía', 'Días Cartera', 'Fecha', 'Total', 'Fecha de vencimiento', 'Días vencidos', 'Al corriente', '< a 30', '< a 60', '< a 90', '> a 90'])
-                df = df[['Nombre cliente', 'Al corriente', '< a 30', '< a 60', '< a 90', '> a 90']]
-                for columna in ['Al corriente', '< a 30', '< a 60', '< a 90', '> a 90']:
+                ###########################################################################REPORTE CORPORATIVO.
+                #Crear el DataFrame
+                df = pd.DataFrame(listaReordenada, columns = ['Clave cliente', 'Nombre cliente', 'Guía', 'Días Cartera', 'Fecha', 'Total', 'Fecha de vencimiento', 'Días vencidos', 'Al corriente', '< a 30', '< a 60', '< a 90', '< a 180', '> a 180'])
+                df = df[['Nombre cliente', 'Al corriente', '< a 30', '< a 60', '< a 90', '< a 180', '> a 180']]
+
+                #Eliminar filas donde 'Nombre cliente' es un espacio en blanco
+                df = df[df['Nombre cliente'].str.strip() != '']
+
+                for columna in ['Al corriente', '< a 30', '< a 60', '< a 90', '< a 180', '> a 180']:
+                    #Verificar si los valores son numéricos
                     df[columna] = pd.to_numeric(df[columna], errors='coerce')
+
+                #Agrupar y sumar
                 df_agrupado = df.groupby('Nombre cliente').sum()
-                totales = df_agrupado.sum()
+
+                #Calcular totales
+                totales = df_agrupado.sum().round(2)
                 df_totales = pd.DataFrame(totales).T
                 df_totales.index = ['Total']
                 df_final = pd.concat([df_agrupado, df_totales])
-                input(df_final)
+
+                # Calcular la suma de todos los totales
+                suma_totales = df_final.loc['Total'].sum()
+
+                # Calcular el porcentaje de cada total
+                porcentajes = (df_final.loc['Total'] / suma_totales * 100).round(2)
+
+                # Crear un nuevo DataFrame con los porcentajes
+                df_porcentajes = pd.DataFrame(porcentajes).T
+                df_porcentajes.index = ['Porcentaje']
+
+                # Concatenar el DataFrame original con el DataFrame de porcentajes
+                df_final_con_porcentajes = pd.concat([df_final, df_porcentajes])
+
+                # Crear una copia del DataFrame para evitar modificar el original
+                df_copia = df_final_con_porcentajes.copy()
+
+                # Clasificar a los clientes
+                df_copia.loc[df_copia['> a 180'] > 0, 'Categoría'] = 'Incobrable'
+                df_copia.loc[(df_copia['< a 180'] > 0) & (df_copia['Categoría'].isna()), 'Categoría'] = 'Malo'
+                df_copia.loc[(df_copia['< a 90'] > 0) & (df_copia['Categoría'].isna()), 'Categoría'] = 'Malo'
+                df_copia.loc[(df_copia['< a 60'] > 0) & (df_copia['Categoría'].isna()), 'Categoría'] = 'Regular'
+                df_copia.loc[(df_copia['< a 30'] > 0) & (df_copia['Categoría'].isna()), 'Categoría'] = 'Bueno'
+                df_copia.loc[df_copia['Categoría'].isna(), 'Categoría'] = 'Bueno'
+
+                # Eliminar la columna 'Categoría' para 'Total' y 'Porcentaje'
+                df_copia.loc['Total', 'Categoría'] = ''
+                df_copia.loc['Porcentaje', 'Categoría'] = ''
+
+                # Convertir el DataFrame a lista incluyendo el índice
+                lista_final_con_porcentajes_y_categoria = df_copia.reset_index().values.tolist()
+
+                ###########################################################################INGLÉS
+                ###########################################################################INGLÉS
+                # Crear un diccionario para mapear los encabezados al inglés
+                traduccion = {
+                    'Nombre cliente': 'Customer Name',
+                    'Al corriente': 'Current',
+                    '< a 30': '< 30',
+                    '< a 60': '< 60',
+                    '< a 90': '< 90',
+                    '< a 180': '< 180',
+                    '> a 180': '> 180',
+                    'Categoría': 'Category'
+                }
+
+                # Crear un diccionario para mapear los valores de 'Categoría' al inglés
+                traduccion_categoria = {
+                    'Bueno': 'Good',
+                    'Regular': 'Regular',
+                    'Malo': 'Bad',
+                    'Incobrable': 'Uncollectible',
+                    '': ''  # Para manejar los valores vacíos
+                }
+
+                # Crear un diccionario para mapear 'Total' y 'Porcentaje' al inglés
+                traduccion_indice = {
+                    'Total': 'Total',
+                    'Porcentaje': 'Percentage'
+                }
+
+                # Crear una copia en inglés
+                df_copia_ingles = df_copia.rename(columns=traduccion)
+
+                # Traducir los valores de 'Category'
+                df_copia_ingles['Category'] = df_copia_ingles['Category'].map(traduccion_categoria)
+
+                # Traducir 'Total' y 'Porcentaje' en el índice
+                df_copia_ingles = df_copia_ingles.rename(index=traduccion_indice)
+
+                # Convertir el DataFrame a lista incluyendo el índice
+                lista_final_con_porcentajes_y_categoria_ingles = df_copia_ingles.reset_index().values.tolist()
+
+                ###########################################################################IMPRESIÓN
+                printGreenNegrita("\nAnálisis de reporte corporativo realizado con éxito.")
+                printCyanNegrita("¿Desea visualizarlo? (Sí/No)")
+                if respuestaSiYNo():
+                    printBlueNegrita("\nReporte corporativo:")
+                    print(tabulate(lista_final_con_porcentajes_y_categoria, headers = ['Nombre cliente', 'Al corriente', '< a 30', '< a 60', '< a 90', '< a 180', '> a 180', 'Categoría'], tablefmt = 'pretty'))
+                    print("")
+                    printBlueNegrita("\nCorporate reporting:")
+                    print(tabulate(lista_final_con_porcentajes_y_categoria_ingles, headers = ['Customer Name', 'Current', '< 30', '< 60', '< 90', '< 180', '> 180', 'Category'], tablefmt = 'pretty'))
+
+                ###########################################################################IDENTIFICACIÓN.
+                printBlueNegrita("\nConclusiones.")
+                print("Cliente")
+                indicarEnter()
                 break
         except Error as e:
             inputRedNegrita(f'Se produjo el siguiente error: {e}')
